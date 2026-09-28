@@ -3,18 +3,20 @@ groups:
     rules:
       - alert: KubeNodeNotReady
         expr: |
-          kube_node_status_condition{condition="Ready",status="true"} == 0
+          max by (node) (kube_node_status_condition{condition="Ready",status="true"}) == 0
+          or
+          max by (node) (kube_node_status_condition{condition="Ready",status="unknown"}) == 1
         for: 10m
         labels:
           severity: critical
           team: platform
         annotations:
           summary: "Node {{ $labels.node }} is NotReady"
-          description: "Kubernetes node {{ $labels.node }} has been NotReady for more than 10 minutes."
+          description: "Kubernetes node {{ $labels.node }} has been NotReady or Ready=unknown for more than 10 minutes."
           runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
       - alert: KubeNodeDiskPressure
         expr: |
-          kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+          max by (node) (kube_node_status_condition{condition="DiskPressure",status="true"}) == 1
         for: 5m
         labels:
           severity: warning

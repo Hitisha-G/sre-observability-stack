@@ -20,7 +20,7 @@ prometheus/
   rules/                    # alerting rule packs by workload type
     kube-pods.yml           # CrashLoopBackOff / pod readiness alerts
     kube-deployments.yml    # replica mismatch and rollout alerts
-    kube-nodes.yml          # NotReady and DiskPressure node alerts
+    kube-nodes.yml          # NotReady (incl. Ready=unknown) and DiskPressure
 grafana/
   dashboards/               # JSON dashboards checked into git
 otel/
