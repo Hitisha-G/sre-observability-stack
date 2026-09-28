@@ -20,6 +20,7 @@ prometheus/
   rules/                    # alerting rule packs by workload type
     kube-pods.yml           # CrashLoopBackOff / pod readiness alerts
     kube-deployments.yml    # replica mismatch and rollout alerts
+    kube-nodes.yml          # NotReady and DiskPressure node alerts
 grafana/
   dashboards/               # JSON dashboards checked into git
 otel/
@@ -33,4 +34,4 @@ Default demo region mindset matches India-friendly labs (`ap-south-1` style nami
 
 ## Status
 
-Alert rules are split into focused kube-pods and kube-deployments packs. Compose stack, dashboards, and more rule packs land in follow-up commits.
+Alert rules cover kube-pods, kube-deployments, and kube-nodes. Compose stack, dashboards, and more rule packs land in follow-up commits.

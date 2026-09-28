@@ -1,0 +1,25 @@
+groups:
+  - name: kube-nodes
+    rules:
+      - alert: KubeNodeNotReady
+        expr: |
+          kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Node {{ $labels.node }} is NotReady"
+          description: "Kubernetes node {{ $labels.node }} has been NotReady for more than 10 minutes."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
+      - alert: KubeNodeDiskPressure
+        expr: |
+          kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Node {{ $labels.node }} reporting DiskPressure"
+          description: "DiskPressure is true on {{ $labels.node }} for more than 5 minutes; pods may be evicted."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-disk-pressure.md"
