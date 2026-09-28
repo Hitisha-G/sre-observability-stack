@@ -1,0 +1,14 @@
+groups:
+  - name: kube-pods
+    rules:
+      - alert: KubePodCrashLooping
+        expr: |
+          max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[15m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+          description: "Container {{ $labels.container }} has been in CrashLoopBackOff for more than 10 minutes."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-pod-crash-looping.md"

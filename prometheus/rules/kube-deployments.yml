@@ -1,0 +1,14 @@
+groups:
+  - name: kube-deployments
+    rules:
+      - alert: KubeDeploymentReplicasMismatch
+        expr: |
+          kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+        for: 15m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
+          description: "Desired replicas differ from available replicas for longer than 15 minutes."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-replicas-mismatch.md"

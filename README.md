@@ -17,7 +17,9 @@ Aimed at platform / SRE workflows — local compose for demos, Helm values for c
 docker-compose.yml          # local Prometheus + Grafana + Alertmanager (next)
 helm/                       # chart values overlays for cluster installs
 prometheus/
-  rules/                    # recording + alerting rules
+  rules/                    # alerting rule packs by workload type
+    kube-pods.yml           # CrashLoopBackOff / pod readiness alerts
+    kube-deployments.yml    # replica mismatch and rollout alerts
 grafana/
   dashboards/               # JSON dashboards checked into git
 otel/
@@ -31,4 +33,4 @@ Default demo region mindset matches India-friendly labs (`ap-south-1` style nami
 
 ## Status
 
-Scaffolding the repo and CI first. Compose stack, rule packs, and sample dashboards land in follow-up commits.
+Alert rules are split into focused kube-pods and kube-deployments packs. Compose stack, dashboards, and more rule packs land in follow-up commits.
