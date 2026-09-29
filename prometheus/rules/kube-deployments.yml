@@ -3,11 +3,15 @@ groups:
     rules:
       - alert: KubeDeploymentReplicasMismatch
         expr: |
-          kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+          (
+            kube_deployment_spec_replicas
+            - on (namespace, deployment) kube_deployment_status_replicas_available
+          ) != 0
         for: 15m
         labels:
           severity: critical
           team: platform
+          component: kubernetes
         annotations:
           summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
           description: "Desired replicas differ from available replicas for longer than 15 minutes."

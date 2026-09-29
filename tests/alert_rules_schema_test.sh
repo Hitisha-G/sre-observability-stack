@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Unit checks for Prometheus alert rule packs under prometheus/rules/.
-# Every alerting rule must carry severity + team labels and a runbook_url.
+# Every alerting rule must carry severity, team, and component labels plus a runbook_url.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,7 +51,7 @@ alerts = 0
 if yaml is None:
     for path in files:
         text = path.read_text()
-        for token in ("severity:", "team:", "runbook_url:", "summary:"):
+        for token in ("severity:", "team:", "component:", "runbook_url:", "summary:"):
             if token in text:
                 ok(f"{path.name} contains {token}")
             else:
@@ -87,6 +87,10 @@ else:
                     ok(f"{name}: team set")
                 else:
                     bad(f"{name}: team label required")
+                if labels.get("component"):
+                    ok(f"{name}: component set")
+                else:
+                    bad(f"{name}: component label required")
                 runbook = ann.get("runbook_url", "")
                 if isinstance(runbook, str) and runbook.startswith("http"):
                     ok(f"{name}: runbook_url present")
