@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prometheus/**"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "prometheus/**"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  alert-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck and PyYAML
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck python3-yaml
+      - name: ShellCheck test scripts
+        run: shellcheck tests/*.sh
+      - name: Validate alert rule schema
+        run: bash tests/alert_rules_schema_test.sh
