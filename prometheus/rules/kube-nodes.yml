@@ -1,5 +1,8 @@
 groups:
   - name: kube-nodes
+    labels:
+      team: platform
+      component: kubernetes
     rules:
       - alert: KubeNodeNotReady
         expr: |
@@ -11,8 +14,6 @@ groups:
         for: 10m
         labels:
           severity: critical
-          team: platform
-          component: kubernetes
         annotations:
           summary: "Node {{ $labels.node }} is NotReady"
           description: "Kubernetes node {{ $labels.node }} has been NotReady or Ready=unknown for more than 10 minutes."
@@ -25,8 +26,6 @@ groups:
         for: 5m
         labels:
           severity: warning
-          team: platform
-          component: kubernetes
         annotations:
           summary: "Node {{ $labels.node }} reporting DiskPressure"
           description: "DiskPressure is true on {{ $labels.node }} for more than 5 minutes; pods may be evicted."

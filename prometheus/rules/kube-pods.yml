@@ -1,5 +1,8 @@
 groups:
   - name: kube-pods
+    labels:
+      team: platform
+      component: kubernetes
     rules:
       - alert: KubePodCrashLooping
         expr: |
@@ -9,8 +12,6 @@ groups:
         for: 15m
         labels:
           severity: warning
-          team: platform
-          component: kubernetes
         annotations:
           summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
           description: "Container {{ $labels.container }} has been in CrashLoopBackOff continuously for more than 15 minutes."

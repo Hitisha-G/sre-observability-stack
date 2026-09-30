@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Unit checks for Prometheus alert rule packs under prometheus/rules/.
-# Every alerting rule must carry severity, team, and component labels plus a runbook_url.
+# Every alerting rule must carry severity, team, and component labels (rule or group) plus a runbook_url.
 # Also enforces PromQL hygiene: non-empty for:, unique alert names, and CrashLoop waiting_reason.
 set -euo pipefail
 
@@ -84,13 +84,15 @@ else:
             bad(f"{path.name}: has groups")
             continue
         for group in groups:
+            group_labels = group.get("labels") or {}
             for rule in group.get("rules") or []:
                 if "alert" not in rule:
                     continue
                 alerts += 1
                 name = rule["alert"]
                 alert_names.append((name, path.name))
-                labels = rule.get("labels") or {}
+                # Group labels (Prometheus >= 2.27) apply to every rule; rule labels win.
+                labels = {**group_labels, **(rule.get("labels") or {})}
                 ann = rule.get("annotations") or {}
                 sev = labels.get("severity")
                 if sev in ("warning", "critical", "info"):

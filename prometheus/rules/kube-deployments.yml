@@ -1,5 +1,8 @@
 groups:
   - name: kube-deployments
+    labels:
+      team: platform
+      component: kubernetes
     rules:
       - alert: KubeDeploymentReplicasMismatch
         expr: |
@@ -13,8 +16,6 @@ groups:
         for: 15m
         labels:
           severity: critical
-          team: platform
-          component: kubernetes
         annotations:
           summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
           description: "Available replicas have been below the desired count for longer than 15 minutes."
