@@ -3,10 +3,13 @@ groups:
     rules:
       - alert: KubeDeploymentReplicasMismatch
         expr: |
-          (
-            kube_deployment_spec_replicas
-            - on (namespace, deployment) kube_deployment_status_replicas_available
-          ) != 0
+          max by (namespace, deployment) (
+            (
+              kube_deployment_spec_replicas
+              - on (namespace, deployment) group_left()
+                kube_deployment_status_replicas_available
+            ) > 0
+          )
         for: 15m
         labels:
           severity: critical
@@ -14,5 +17,5 @@ groups:
           component: kubernetes
         annotations:
           summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
-          description: "Desired replicas differ from available replicas for longer than 15 minutes."
+          description: "Available replicas have been below the desired count for longer than 15 minutes."
           runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-replicas-mismatch.md"
