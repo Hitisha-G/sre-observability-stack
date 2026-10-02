@@ -139,23 +139,38 @@ for name, src in alert_names:
 if alert_names and not dupes:
     ok(f"alert names unique ({len(seen)} across rule files)")
 
-# Regression guard: CrashLoop must use waiting_reason, not restart rate/increase.
+# Regression guard: CrashLoop must use waiting_reason (alert or its recording rule).
 if crashloop_expr is None:
     bad("KubePodCrashLooping alert must be defined")
 else:
     expr = crashloop_expr if isinstance(crashloop_expr, str) else str(crashloop_expr)
-    if "kube_pod_container_status_waiting_reason" in expr:
+    # Prefer validating the recording rule when the alert thresholds on it.
+    check_blob = expr
+    if "sre:kube_pod_container_crashloop" in expr and yaml is not None:
+        recording_bits = []
+        for path in files:
+            data = yaml.safe_load(path.read_text()) or {}
+            for group in data.get("groups") or []:
+                for rule in group.get("rules") or []:
+                    if rule.get("record") == "sre:kube_pod_container_crashloop":
+                        recording_bits.append(rule.get("expr") or "")
+        if recording_bits:
+            check_blob = "\n".join(recording_bits)
+            ok("KubePodCrashLooping: thresholds on sre:kube_pod_container_crashloop")
+        else:
+            bad("KubePodCrashLooping: missing sre:kube_pod_container_crashloop recording rule")
+    if "kube_pod_container_status_waiting_reason" in check_blob:
         ok("KubePodCrashLooping: uses kube_pod_container_status_waiting_reason")
     else:
         bad("KubePodCrashLooping: must use kube_pod_container_status_waiting_reason")
-    if "CrashLoopBackOff" in expr:
+    if "CrashLoopBackOff" in check_blob:
         ok("KubePodCrashLooping: matches CrashLoopBackOff reason")
     else:
         bad("KubePodCrashLooping: must match CrashLoopBackOff reason")
     # Reject latching patterns that keep firing after the pod recovers.
     restart_latch = re.search(
         r"(increase|rate)\s*\(\s*kube_pod_container_status_restarts_total",
-        expr,
+        check_blob,
         re.IGNORECASE,
     )
     if restart_latch:

@@ -1,4 +1,12 @@
 groups:
+  - name: kube-pods.recording
+    rules:
+      # Pre-aggregate CrashLoopBackOff so the alert is a simple threshold on a recording rule.
+      - record: sre:kube_pod_container_crashloop
+        expr: |
+          max by (namespace, pod, container) (
+            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+          )
   - name: kube-pods
     labels:
       team: platform
@@ -6,9 +14,7 @@ groups:
     rules:
       - alert: KubePodCrashLooping
         expr: |
-          max by (namespace, pod, container) (
-            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
-          )
+          sre:kube_pod_container_crashloop == 1
         for: 15m
         labels:
           severity: warning
