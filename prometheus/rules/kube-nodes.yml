@@ -1,4 +1,22 @@
 groups:
+  - name: kube-nodes.recording
+    rules:
+      # Pre-aggregate kube-state-metrics condition gauges so alerts stay readable.
+      - record: sre:kube_node_condition_ready
+        expr: |
+          max by (node) (
+            kube_node_status_condition{condition="Ready",status="true"}
+          )
+      - record: sre:kube_node_condition_ready_unknown
+        expr: |
+          max by (node) (
+            kube_node_status_condition{condition="Ready",status="unknown"}
+          )
+      - record: sre:kube_node_condition_disk_pressure
+        expr: |
+          max by (node) (
+            kube_node_status_condition{condition="DiskPressure",status="true"}
+          )
   - name: kube-nodes
     labels:
       team: platform
@@ -6,11 +24,9 @@ groups:
     rules:
       - alert: KubeNodeNotReady
         expr: |
-          max by (node) (
-            kube_node_status_condition{condition="Ready",status="true"} == 0
-            or
-            kube_node_status_condition{condition="Ready",status="unknown"} == 1
-          )
+          sre:kube_node_condition_ready == 0
+          or
+          sre:kube_node_condition_ready_unknown == 1
         for: 10m
         labels:
           severity: critical
@@ -20,9 +36,7 @@ groups:
           runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
       - alert: KubeNodeDiskPressure
         expr: |
-          max by (node) (
-            kube_node_status_condition{condition="DiskPressure",status="true"} == 1
-          )
+          sre:kube_node_condition_disk_pressure == 1
         for: 5m
         labels:
           severity: warning
