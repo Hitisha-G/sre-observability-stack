@@ -1,4 +1,16 @@
 groups:
+  - name: kube-deployments.recording
+    rules:
+      # Pre-aggregate unavailable replicas so the alert expr stays a simple threshold.
+      - record: sre:kube_deployment_replicas_unavailable
+        expr: |
+          max by (namespace, deployment) (
+            (
+              kube_deployment_spec_replicas
+              - on (namespace, deployment) group_left()
+                kube_deployment_status_replicas_available
+            )
+          )
   - name: kube-deployments
     labels:
       team: platform
@@ -6,13 +18,7 @@ groups:
     rules:
       - alert: KubeDeploymentReplicasMismatch
         expr: |
-          max by (namespace, deployment) (
-            (
-              kube_deployment_spec_replicas
-              - on (namespace, deployment) group_left()
-                kube_deployment_status_replicas_available
-            ) > 0
-          )
+          sre:kube_deployment_replicas_unavailable > 0
         for: 15m
         labels:
           severity: critical
