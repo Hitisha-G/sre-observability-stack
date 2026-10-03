@@ -37,7 +37,14 @@ jobs:
         run: shellcheck tests/*.sh
       - name: Validate alert rule schema
         run: bash tests/alert_rules_schema_test.sh
+      - name: Cache promtool
+        id: cache-promtool
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/promtool
+          key: promtool-${{ runner.os }}-3.5.0
       - name: Install promtool
+        if: steps.cache-promtool.outputs.cache-hit != 'true'
         env:
           PROM_VERSION: "3.5.0"
         run: |
@@ -46,7 +53,28 @@ jobs:
             "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz" \
             | tar -xz --strip-components=1 -C "$HOME/.local/bin" \
               "prometheus-${PROM_VERSION}.linux-amd64/promtool"
+          chmod +x "$HOME/.local/bin/promtool"
+      - name: Add promtool to PATH
+        run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/promtool" --version
       - name: Check Prometheus rules with promtool
         run: promtool check rules prometheus/rules/*.yml
+      - name: Summarize validated rules
+        if: always()
+        run: |
+          {
+            echo "## Prometheus rules"
+            echo
+            shopt -s nullglob
+            files=(prometheus/rules/*.yml prometheus/rules/*.yaml)
+            if [[ ${#files[@]} -eq 0 ]]; then
+              echo "_No rule files found._"
+            else
+              echo "Validated **${#files[@]}** file(s):"
+              echo
+              for f in "${files[@]}"; do
+                echo "- \`$f\`"
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
