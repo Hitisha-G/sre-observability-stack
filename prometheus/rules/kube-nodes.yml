@@ -2,15 +2,12 @@ groups:
   - name: kube-nodes.recording
     rules:
       # Pre-aggregate kube-state-metrics condition gauges so alerts stay readable.
-      - record: sre:kube_node_condition_ready
+      # One series per node: 1 when Ready is false or unknown, 0 otherwise.
+      # Replaces separate ready / ready_unknown rules so the alert is a single threshold.
+      - record: sre:kube_node_not_ready
         expr: |
           max by (node) (
-            kube_node_status_condition{condition="Ready",status="true"}
-          )
-      - record: sre:kube_node_condition_ready_unknown
-        expr: |
-          max by (node) (
-            kube_node_status_condition{condition="Ready",status="unknown"}
+            kube_node_status_condition{condition="Ready",status=~"false|unknown"}
           )
       - record: sre:kube_node_condition_disk_pressure
         expr: |
@@ -24,9 +21,7 @@ groups:
     rules:
       - alert: KubeNodeNotReady
         expr: |
-          sre:kube_node_condition_ready == 0
-          or
-          sre:kube_node_condition_ready_unknown == 1
+          sre:kube_node_not_ready == 1
         for: 10m
         labels:
           severity: critical
