@@ -53,6 +53,23 @@ alerts = 0
 alert_names: list[tuple[str, str]] = []
 crashloop_expr = None
 
+# Parse each rule file once and reuse the documents for every check below.
+docs: dict[pathlib.Path, dict] = {}
+if yaml is not None:
+    for path in files:
+        docs[path] = yaml.safe_load(path.read_text()) or {}
+
+
+def recording_exprs(record_name: str) -> list[str]:
+    """Return expr strings for every recording rule named record_name."""
+    found = []
+    for data in docs.values():
+        for group in data.get("groups") or []:
+            for rule in group.get("rules") or []:
+                if rule.get("record") == record_name:
+                    found.append(rule.get("expr") or "")
+    return found
+
 if yaml is None:
     for path in files:
         text = path.read_text()
@@ -77,7 +94,7 @@ if yaml is None:
             crashloop_expr = text
 else:
     for path in files:
-        data = yaml.safe_load(path.read_text()) or {}
+        data = docs[path]
         groups = data.get("groups") or []
         if groups:
             ok(f"{path.name}: has groups")
@@ -148,13 +165,7 @@ else:
     # Prefer validating the recording rule when the alert thresholds on it.
     check_blob = expr
     if "sre:kube_pod_container_crashloop" in expr and yaml is not None:
-        recording_bits = []
-        for path in files:
-            data = yaml.safe_load(path.read_text()) or {}
-            for group in data.get("groups") or []:
-                for rule in group.get("rules") or []:
-                    if rule.get("record") == "sre:kube_pod_container_crashloop":
-                        recording_bits.append(rule.get("expr") or "")
+        recording_bits = recording_exprs("sre:kube_pod_container_crashloop")
         if recording_bits:
             check_blob = "\n".join(recording_bits)
             ok("KubePodCrashLooping: thresholds on sre:kube_pod_container_crashloop")
