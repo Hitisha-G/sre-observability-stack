@@ -2,14 +2,17 @@ groups:
   - name: kube-deployments.recording
     rules:
       # Pre-aggregate unavailable replicas so the alert expr stays a simple threshold.
+      # Clamp at zero: during a surge rollout available can exceed desired, which
+      # would otherwise record a negative "unavailable" count on dashboards.
       - record: sre:kube_deployment_replicas_unavailable
         expr: |
-          max by (namespace, deployment) (
-            (
+          clamp_min(
+            max by (namespace, deployment) (
               kube_deployment_spec_replicas
               - on (namespace, deployment) group_left()
                 kube_deployment_status_replicas_available
-            )
+            ),
+            0
           )
   - name: kube-deployments
     labels:

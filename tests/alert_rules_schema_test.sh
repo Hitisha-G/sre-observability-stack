@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Unit checks for Prometheus alert rule packs under prometheus/rules/.
 # Every alerting rule must carry severity, team, and component labels (rule or group) plus a runbook_url.
-# Also enforces PromQL hygiene: non-empty for:, unique alert names, and CrashLoop waiting_reason.
+# Also enforces PromQL hygiene: non-empty for:, unique alert names, CrashLoop waiting_reason,
+# and a non-negative unavailable-replicas recording rule.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -177,6 +178,16 @@ else:
         bad("KubePodCrashLooping: must not use increase()/rate() on restart counts")
     else:
         ok("KubePodCrashLooping: does not use increase()/rate() on restart counts")
+
+# Regression guard: unavailable replicas must never record a negative count.
+deploy_rules = rules_dir / "kube-deployments.yml"
+if deploy_rules.exists():
+    deploy_text = deploy_rules.read_text()
+    if "sre:kube_deployment_replicas_unavailable" in deploy_text:
+        if re.search(r"clamp_min\s*\(", deploy_text):
+            ok("sre:kube_deployment_replicas_unavailable: clamped at zero")
+        else:
+            bad("sre:kube_deployment_replicas_unavailable: wrap expr in clamp_min(..., 0)")
 
 if alerts == 0:
     bad("at least one alerting rule defined")
