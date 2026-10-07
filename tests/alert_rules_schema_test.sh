@@ -191,14 +191,17 @@ else:
         ok("KubePodCrashLooping: does not use increase()/rate() on restart counts")
 
 # Regression guard: unavailable replicas must never record a negative count.
-deploy_rules = rules_dir / "kube-deployments.yml"
-if deploy_rules.exists():
-    deploy_text = deploy_rules.read_text()
-    if "sre:kube_deployment_replicas_unavailable" in deploy_text:
-        if re.search(r"clamp_min\s*\(", deploy_text):
-            ok("sre:kube_deployment_replicas_unavailable: clamped at zero")
-        else:
-            bad("sre:kube_deployment_replicas_unavailable: wrap expr in clamp_min(..., 0)")
+# Check the recording rule's own expr (wherever it lives) rather than grepping one file.
+UNAVAILABLE_RECORD = "sre:kube_deployment_replicas_unavailable"
+if yaml is not None:
+    unavailable_exprs = recording_exprs(UNAVAILABLE_RECORD)
+else:
+    unavailable_exprs = [p.read_text() for p in files if UNAVAILABLE_RECORD in p.read_text()]
+for expr in unavailable_exprs:
+    if re.search(r"clamp_min\s*\(", expr):
+        ok(f"{UNAVAILABLE_RECORD}: clamped at zero")
+    else:
+        bad(f"{UNAVAILABLE_RECORD}: wrap expr in clamp_min(..., 0)")
 
 if alerts == 0:
     bad("at least one alerting rule defined")
