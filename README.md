@@ -34,4 +34,4 @@ Default demo region mindset matches India-friendly labs (`ap-south-1` style nami
 
 ## Status
 
-Alert rules cover kube-pods, kube-deployments, and kube-nodes. Runbooks live in `docs/runbooks/`, starting with [KubePodCrashLooping](docs/runbooks/kube-pod-crash-looping.md). Compose stack, dashboards, and more rule packs land in follow-up commits.
+Alert rules cover kube-pods, kube-deployments, and kube-nodes. Runbooks live in `docs/runbooks/`, including [KubePodCrashLooping](docs/runbooks/kube-pod-crash-looping.md) and [KubeNodeNotReady](docs/runbooks/kube-node-not-ready.md). Compose stack, dashboards, and more rule packs land in follow-up commits.
