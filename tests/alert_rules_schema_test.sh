@@ -2,7 +2,7 @@
 # Unit checks for Prometheus alert rule packs under prometheus/rules/.
 # Every alerting rule must carry severity, team, and component labels (rule or group) plus a runbook_url.
 # Also enforces PromQL hygiene: non-empty for:, unique alert names, CrashLoop waiting_reason,
-# and a non-negative unavailable-replicas recording rule.
+# a non-negative unavailable-replicas recording rule, and a Job-aware pod not-ready rule.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -202,6 +202,22 @@ for expr in unavailable_exprs:
         ok(f"{UNAVAILABLE_RECORD}: clamped at zero")
     else:
         bad(f"{UNAVAILABLE_RECORD}: wrap expr in clamp_min(..., 0)")
+
+# Regression guard: pod not-ready must ignore Job-owned pods and Succeeded pods.
+NOT_READY_RECORD = "sre:kube_pod_not_ready"
+if yaml is not None:
+    not_ready_exprs = recording_exprs(NOT_READY_RECORD)
+    if not not_ready_exprs:
+        bad(f"{NOT_READY_RECORD}: recording rule must be defined")
+    for expr in not_ready_exprs:
+        if re.search(r'owner_kind\s*!=\s*"Job"', expr):
+            ok(f"{NOT_READY_RECORD}: excludes Job-owned pods")
+        else:
+            bad(f"{NOT_READY_RECORD}: join kube_pod_owner{{owner_kind!=\"Job\"}} to skip Job pods")
+        if "Succeeded" in expr:
+            bad(f"{NOT_READY_RECORD}: Succeeded pods are finished, not stuck")
+        else:
+            ok(f"{NOT_READY_RECORD}: does not match Succeeded phase")
 
 if alerts == 0:
     bad("at least one alerting rule defined")

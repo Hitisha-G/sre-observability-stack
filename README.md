@@ -18,7 +18,7 @@ docker-compose.yml          # local Prometheus + Grafana + Alertmanager (next)
 helm/                       # chart values overlays for cluster installs
 prometheus/
   rules/                    # alerting rule packs by workload type
-    kube-pods.yml           # CrashLoopBackOff / pod readiness alerts
+    kube-pods.yml           # CrashLoopBackOff and pod not-ready (Job pods excluded)
     kube-deployments.yml    # replica mismatch and rollout alerts
     kube-nodes.yml          # NotReady (incl. Ready=unknown) and DiskPressure
 grafana/
