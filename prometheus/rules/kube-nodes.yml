@@ -19,6 +19,11 @@ groups:
           max by (node) (
             kube_node_status_condition{condition="MemoryPressure",status="true"}
           )
+      - record: sre:kube_node_pid_pressure
+        expr: |
+          max by (node) (
+            kube_node_status_condition{condition="PIDPressure",status="true"}
+          )
   - name: kube-nodes
     labels:
       team: platform
@@ -54,3 +59,13 @@ groups:
           summary: "Node {{ $labels.node }} reporting MemoryPressure"
           description: "MemoryPressure is true on {{ $labels.node }} for more than 5 minutes; pods may be evicted."
           runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-memory-pressure.md"
+      - alert: KubeNodePIDPressure
+        expr: |
+          sre:kube_node_pid_pressure == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.node }} reporting PIDPressure"
+          description: "PIDPressure is true on {{ $labels.node }} for more than 5 minutes; new pods may fail to start."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-pid-pressure.md"
