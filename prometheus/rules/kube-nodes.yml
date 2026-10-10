@@ -9,7 +9,7 @@ groups:
           max by (node) (
             kube_node_status_condition{condition="Ready",status=~"false|unknown"}
           )
-      - record: sre:kube_node_condition_disk_pressure
+      - record: sre:kube_node_disk_pressure
         expr: |
           max by (node) (
             kube_node_status_condition{condition="DiskPressure",status="true"}
@@ -31,7 +31,7 @@ groups:
           runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
       - alert: KubeNodeDiskPressure
         expr: |
-          sre:kube_node_condition_disk_pressure == 1
+          sre:kube_node_disk_pressure == 1
         for: 5m
         labels:
           severity: warning
