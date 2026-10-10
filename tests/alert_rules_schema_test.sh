@@ -164,13 +164,13 @@ else:
     expr = crashloop_expr if isinstance(crashloop_expr, str) else str(crashloop_expr)
     # Prefer validating the recording rule when the alert thresholds on it.
     check_blob = expr
-    if "sre:kube_pod_container_crashloop" in expr and yaml is not None:
-        recording_bits = recording_exprs("sre:kube_pod_container_crashloop")
+    if "sre:kube_pod_crashloop" in expr and yaml is not None:
+        recording_bits = recording_exprs("sre:kube_pod_crashloop")
         if recording_bits:
             check_blob = "\n".join(recording_bits)
-            ok("KubePodCrashLooping: thresholds on sre:kube_pod_container_crashloop")
+            ok("KubePodCrashLooping: thresholds on sre:kube_pod_crashloop")
         else:
-            bad("KubePodCrashLooping: missing sre:kube_pod_container_crashloop recording rule")
+            bad("KubePodCrashLooping: missing sre:kube_pod_crashloop recording rule")
     if "kube_pod_container_status_waiting_reason" in check_blob:
         ok("KubePodCrashLooping: uses kube_pod_container_status_waiting_reason")
     else:

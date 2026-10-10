@@ -3,7 +3,7 @@
 **Severity:** warning · **Team:** platform · **Rule file:** `prometheus/rules/kube-pods.yml`
 
 Fires when a container has been in `CrashLoopBackOff` for more than 15 minutes
-(`sre:kube_pod_container_crashloop == 1`).
+(`sre:kube_pod_crashloop == 1`).
 
 ## Impact
 
@@ -49,5 +49,5 @@ The alert resolves once the container stays `Running` and the recording rule
 returns no series for that pod:
 
 ```promql
-sre:kube_pod_container_crashloop{namespace="<namespace>", pod="<pod>"}
+sre:kube_pod_crashloop{namespace="<namespace>", pod="<pod>"}
 ```
