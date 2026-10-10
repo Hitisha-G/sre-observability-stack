@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         run: make test
 
   rules:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -61,12 +61,17 @@ jobs:
         if: steps.cache-promtool.outputs.cache-hit != 'true'
         env:
           PROM_VERSION: "3.5.0"
+          PROM_SHA256: "e811827af26d822afb09a4f28314f61b618b12cff5369835a67f674d8b46f39a"
         run: |
           mkdir -p "$HOME/.local/bin"
+          archive="$(mktemp)"
           curl -fsSL \
             "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz" \
-            | tar -xz --strip-components=1 -C "$HOME/.local/bin" \
-              "prometheus-${PROM_VERSION}.linux-amd64/promtool"
+            -o "$archive"
+          echo "${PROM_SHA256}  ${archive}" | sha256sum -c -
+          tar -xz -f "$archive" --strip-components=1 -C "$HOME/.local/bin" \
+            "prometheus-${PROM_VERSION}.linux-amd64/promtool"
+          rm -f "$archive"
           chmod +x "$HOME/.local/bin/promtool"
       - name: Add promtool to PATH
         run: |
@@ -95,7 +100,7 @@ jobs:
 
   ci:
     needs: [lint, rules]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: always()
     steps:
       - name: Require lint and rules
