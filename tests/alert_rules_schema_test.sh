@@ -218,6 +218,14 @@ if yaml is not None:
             bad(f"{NOT_READY_RECORD}: Succeeded pods are finished, not stuck")
         else:
             ok(f"{NOT_READY_RECORD}: does not match Succeeded phase")
+        # Require == 1 so healthy pods do not emit a permanent zero series.
+        if re.search(
+            r'kube_pod_status_phase\{phase=~"Pending\|Unknown\|Failed"\}\s*==\s*1',
+            expr,
+        ):
+            ok(f"{NOT_READY_RECORD}: filters active phases with == 1")
+        else:
+            bad(f"{NOT_READY_RECORD}: use kube_pod_status_phase{{phase=~\"Pending|Unknown|Failed\"}} == 1")
 
 if alerts == 0:
     bad("at least one alerting rule defined")
