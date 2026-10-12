@@ -3,15 +3,16 @@
 RULES_DIR := prometheus/rules
 TEST_DIR := tests
 
-.PHONY: help lint test rules ci
+.PHONY: help lint test runbooks rules ci
 
 help:
 	@printf '%s\n' \
 		'Targets:' \
-		'  make lint   - shellcheck test scripts' \
-		'  make test   - alert rule schema unit checks' \
-		'  make rules  - promtool check rules (needs promtool on PATH)' \
-		'  make ci     - lint + test + rules'
+		'  make lint      - shellcheck test scripts' \
+		'  make test      - alert rule schema unit checks' \
+		'  make runbooks  - verify in-repo runbook_url targets exist' \
+		'  make rules     - promtool check rules (needs promtool on PATH)' \
+		'  make ci        - lint + test + runbooks + rules'
 
 lint:
 	shellcheck $(TEST_DIR)/*.sh
@@ -19,7 +20,10 @@ lint:
 test:
 	bash $(TEST_DIR)/alert_rules_schema_test.sh
 
+runbooks:
+	bash $(TEST_DIR)/runbook_links_test.sh
+
 rules:
 	promtool check rules $(RULES_DIR)/*.yml
 
-ci: lint test rules
+ci: lint test runbooks rules

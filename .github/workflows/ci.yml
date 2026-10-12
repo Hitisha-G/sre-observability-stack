@@ -6,12 +6,14 @@ on:
     paths:
       - "prometheus/**"
       - "tests/**"
+      - "docs/runbooks/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
       - "prometheus/**"
       - "tests/**"
+      - "docs/runbooks/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
@@ -43,6 +45,8 @@ jobs:
         run: make lint
       - name: Validate alert rule schema
         run: make test
+      - name: Verify runbook links resolve
+        run: make runbooks
 
   rules:
     runs-on: ubuntu-24.04
