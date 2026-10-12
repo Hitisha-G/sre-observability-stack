@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # CI guard: every alert runbook_url that points at this repo must resolve to a tracked file.
+# Anchors (#section) and query strings are ignored; paths may not escape the repo root.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -75,9 +76,15 @@ for alert, url in urls:
         # External runbooks are allowed; only enforce in-repo links.
         ok(f"{alert}: external runbook ({url})")
         continue
-    rel = url[len(prefix) :]
-    target = root / rel
-    if target.is_file():
+    # Drop any #anchor or ?query so deep links to a runbook section still resolve.
+    rel = re.split(r"[#?]", url[len(prefix) :], maxsplit=1)[0]
+    if not rel:
+        bad(f"{alert}: runbook_url has no file path ({url})")
+        continue
+    target = (root / rel).resolve()
+    if not target.is_relative_to(root.resolve()):
+        bad(f"{alert}: runbook_url escapes the repository ({rel})")
+    elif target.is_file():
         ok(f"{alert}: {rel} exists")
     else:
         bad(f"{alert}: missing file for {rel}")
