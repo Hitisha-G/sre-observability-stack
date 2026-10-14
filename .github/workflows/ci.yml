@@ -83,6 +83,8 @@ jobs:
           "$HOME/.local/bin/promtool" --version
       - name: Check Prometheus rules with promtool
         run: make rules
+      - name: Run promtool rule unit tests
+        run: make promtool-test
       - name: Summarize validated rules
         if: always()
         run: |

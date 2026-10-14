@@ -1,0 +1,69 @@
+# promtool unit tests for prometheus/rules/kube-pods.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-pods.yml
+
+evaluation_interval: 1m
+
+tests:
+  # CrashLoopBackOff held for longer than for: 15m fires; a pod that recovers does not.
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_waiting_reason{namespace="payments",pod="api-0",container="app",reason="CrashLoopBackOff"}'
+        values: '1x30'
+      - series: 'kube_pod_container_status_waiting_reason{namespace="payments",pod="api-1",container="app",reason="CrashLoopBackOff"}'
+        values: '1x10 0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubePodCrashLooping
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: KubePodCrashLooping
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: payments
+              pod: api-0
+              container: app
+            exp_annotations:
+              summary: "Pod payments/api-0 is crash looping"
+              description: "Container app has been in CrashLoopBackOff continuously for more than 15 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-pod-crash-looping.md"
+
+  # Pending Deployment pod alerts; Failed Job pod and Running pod stay quiet.
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_status_phase{namespace="shop",pod="web-7d9f",phase="Pending"}'
+        values: '1x30'
+      - series: 'kube_pod_owner{namespace="shop",pod="web-7d9f",owner_kind="ReplicaSet"}'
+        values: '1x30'
+      - series: 'kube_pod_status_phase{namespace="shop",pod="migrate-x2k",phase="Failed"}'
+        values: '1x30'
+      - series: 'kube_pod_owner{namespace="shop",pod="migrate-x2k",owner_kind="Job"}'
+        values: '1x30'
+      - series: 'kube_pod_status_phase{namespace="shop",pod="web-abc1",phase="Pending"}'
+        values: '0x30'
+      - series: 'kube_pod_owner{namespace="shop",pod="web-abc1",owner_kind="ReplicaSet"}'
+        values: '1x30'
+    promql_expr_test:
+      - expr: sre:kube_pod_not_ready
+        eval_time: 5m
+        exp_samples:
+          - labels: 'sre:kube_pod_not_ready{namespace="shop",pod="web-7d9f"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: KubePodNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: shop
+              pod: web-7d9f
+            exp_annotations:
+              summary: "Pod shop/web-7d9f has been not ready for 15 minutes"
+              description: "Pod web-7d9f has stayed in Pending, Unknown, or Failed phase for more than 15 minutes (Job pods excluded)."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-pod-not-ready.md"
