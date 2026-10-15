@@ -1,0 +1,28 @@
+groups:
+  - name: kube-jobs.recording
+    rules:
+      # 1 when a Job has reached the terminal Failed condition (backoffLimit or
+      # activeDeadlineSeconds exhausted), 0 otherwise. This deliberately ignores
+      # kube_job_status_failed on its own: that counts failed pods, which also
+      # rises during normal retries of a Job that later succeeds.
+      - record: sre:kube_job_failed
+        expr: |
+          max by (namespace, job_name) (
+            kube_job_failed{condition="true"}
+          )
+  - name: kube-jobs
+    labels:
+      team: platform
+      component: kubernetes
+    rules:
+      - alert: KubeJobFailed
+        expr: |
+          sre:kube_job_failed == 1
+        # Failed is terminal, so a short hold only rides out scrape gaps.
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job {{ $labels.namespace }}/{{ $labels.job_name }} failed"
+          description: "The Job reached the Failed condition (backoffLimit or activeDeadlineSeconds exceeded) and will not retry on its own."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-job-failed.md"

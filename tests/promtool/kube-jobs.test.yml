@@ -1,0 +1,82 @@
+# promtool unit tests for prometheus/rules/kube-jobs.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-jobs.yml
+
+evaluation_interval: 1m
+
+tests:
+  # backup hits the Failed condition at 3m and fires after for: 5m; report
+  # completes normally and must never be recorded as failed.
+  - interval: 1m
+    input_series:
+      - series: 'kube_job_failed{namespace="ops",job_name="backup",condition="true"}'
+        values: '0x2 1x20'
+      - series: 'kube_job_failed{namespace="ops",job_name="backup",condition="false"}'
+        values: '1x2 0x20'
+      - series: 'kube_job_failed{namespace="ops",job_name="report",condition="true"}'
+        values: '0x22'
+      - series: 'kube_job_failed{namespace="ops",job_name="report",condition="false"}'
+        values: '1x22'
+    promql_expr_test:
+      - expr: sre:kube_job_failed
+        eval_time: 5m
+        exp_samples:
+          - labels: 'sre:kube_job_failed{namespace="ops",job_name="backup"}'
+            value: 1
+          - labels: 'sre:kube_job_failed{namespace="ops",job_name="report"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KubeJobFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: KubeJobFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: ops
+              job_name: backup
+            exp_annotations:
+              summary: "Job ops/backup failed"
+              description: "The Job reached the Failed condition (backoffLimit or activeDeadlineSeconds exceeded) and will not retry on its own."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-job-failed.md"
+
+  # migrate has failed pods while retrying (kube_job_status_failed > 0) but
+  # succeeds within backoffLimit, so the Failed condition never turns true.
+  - interval: 1m
+    input_series:
+      - series: 'kube_job_status_failed{namespace="ops",job_name="migrate"}'
+        values: '0x2 1x5 2x15'
+      - series: 'kube_job_failed{namespace="ops",job_name="migrate",condition="true"}'
+        values: '0x22'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: KubeJobFailed
+        exp_alerts: []
+
+  # A Job that is deleted (or garbage-collected by a CronJob history limit)
+  # after failing stops being exported and the alert resolves.
+  - interval: 1m
+    input_series:
+      - series: 'kube_job_failed{namespace="batch",job_name="nightly-etl-29123456",condition="true"}'
+        values: '1x10 _x12'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: KubeJobFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: batch
+              job_name: nightly-etl-29123456
+            exp_annotations:
+              summary: "Job batch/nightly-etl-29123456 failed"
+              description: "The Job reached the Failed condition (backoffLimit or activeDeadlineSeconds exceeded) and will not retry on its own."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-job-failed.md"
+      - eval_time: 20m
+        alertname: KubeJobFailed
+        exp_alerts: []

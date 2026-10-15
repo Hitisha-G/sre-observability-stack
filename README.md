@@ -22,6 +22,7 @@ prometheus/
     kube-deployments.yml    # replica mismatch and rollout alerts
     kube-nodes.yml          # NotReady, DiskPressure, MemoryPressure, PIDPressure
     kube-hpa.yml            # HPA running at its maxReplicas ceiling
+    kube-jobs.yml           # Jobs that reached the terminal Failed condition
 grafana/
   dashboards/               # JSON dashboards checked into git
 otel/
@@ -35,4 +36,4 @@ Default demo region mindset matches India-friendly labs (`ap-south-1` style nami
 
 ## Status
 
-Alert rules cover kube-pods, kube-deployments, kube-nodes, and kube-hpa. Runbooks live in `docs/runbooks/`, including [KubePodCrashLooping](docs/runbooks/kube-pod-crash-looping.md), [KubePodNotReady](docs/runbooks/kube-pod-not-ready.md), [KubeNodeNotReady](docs/runbooks/kube-node-not-ready.md), [KubeNodeMemoryPressure](docs/runbooks/kube-node-memory-pressure.md), [KubeNodePIDPressure](docs/runbooks/kube-node-pid-pressure.md), and [KubeNodeDiskPressure](docs/runbooks/kube-node-disk-pressure.md), plus [KubeDeploymentReplicasMismatch](docs/runbooks/kube-deployment-replicas-mismatch.md), [KubeDeploymentRolloutStuck](docs/runbooks/kube-deployment-rollout-stuck.md), and [KubeHpaMaxedOut](docs/runbooks/kube-hpa-maxed-out.md). Compose stack, dashboards, and more rule packs land in follow-up commits.
+Alert rules cover kube-pods, kube-deployments, kube-nodes, kube-hpa, and kube-jobs. Runbooks live in `docs/runbooks/`, including [KubePodCrashLooping](docs/runbooks/kube-pod-crash-looping.md), [KubePodNotReady](docs/runbooks/kube-pod-not-ready.md), [KubeNodeNotReady](docs/runbooks/kube-node-not-ready.md), [KubeNodeMemoryPressure](docs/runbooks/kube-node-memory-pressure.md), [KubeNodePIDPressure](docs/runbooks/kube-node-pid-pressure.md), and [KubeNodeDiskPressure](docs/runbooks/kube-node-disk-pressure.md), plus [KubeDeploymentReplicasMismatch](docs/runbooks/kube-deployment-replicas-mismatch.md), [KubeDeploymentRolloutStuck](docs/runbooks/kube-deployment-rollout-stuck.md), [KubeHpaMaxedOut](docs/runbooks/kube-hpa-maxed-out.md), and [KubeJobFailed](docs/runbooks/kube-job-failed.md). Compose stack, dashboards, and more rule packs land in follow-up commits.
