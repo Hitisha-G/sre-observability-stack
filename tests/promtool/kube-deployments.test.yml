@@ -1,0 +1,70 @@
+# promtool unit tests for prometheus/rules/kube-deployments.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-deployments.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Generation lag held past for: 15m fires; a lag that reconciles quickly does not.
+  - interval: 1m
+    input_series:
+      - series: 'kube_deployment_metadata_generation{namespace="shop",deployment="web"}'
+        values: '4x30'
+      - series: 'kube_deployment_status_observed_generation{namespace="shop",deployment="web"}'
+        values: '3x30'
+      - series: 'kube_deployment_metadata_generation{namespace="shop",deployment="api"}'
+        values: '7x30'
+      - series: 'kube_deployment_status_observed_generation{namespace="shop",deployment="api"}'
+        values: '6x2 7x28'
+    promql_expr_test:
+      - expr: sre:kube_deployment_generation_lag
+        eval_time: 10m
+        exp_samples:
+          - labels: 'sre:kube_deployment_generation_lag{namespace="shop",deployment="api"}'
+            value: 0
+          - labels: 'sre:kube_deployment_generation_lag{namespace="shop",deployment="web"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubeDeploymentRolloutStuck
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: KubeDeploymentRolloutStuck
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: shop
+              deployment: web
+            exp_annotations:
+              summary: "Deployment shop/web rollout is stuck"
+              description: "The rollout has not progressed for longer than 15 minutes (observed generation lagging or Progressing=False, e.g. ProgressDeadlineExceeded)."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-rollout-stuck.md"
+
+  # ProgressDeadlineExceeded (Progressing=False) fires even when generations match.
+  - interval: 1m
+    input_series:
+      - series: 'kube_deployment_metadata_generation{namespace="payments",deployment="ledger"}'
+        values: '2x30'
+      - series: 'kube_deployment_status_observed_generation{namespace="payments",deployment="ledger"}'
+        values: '2x30'
+      - series: 'kube_deployment_status_condition{namespace="payments",deployment="ledger",condition="Progressing",status="false",reason="ProgressDeadlineExceeded"}'
+        values: '1x30'
+      - series: 'kube_deployment_status_condition{namespace="payments",deployment="ledger",condition="Progressing",status="true",reason="ProgressDeadlineExceeded"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: KubeDeploymentRolloutStuck
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: payments
+              deployment: ledger
+            exp_annotations:
+              summary: "Deployment payments/ledger rollout is stuck"
+              description: "The rollout has not progressed for longer than 15 minutes (observed generation lagging or Progressing=False, e.g. ProgressDeadlineExceeded)."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-rollout-stuck.md"
