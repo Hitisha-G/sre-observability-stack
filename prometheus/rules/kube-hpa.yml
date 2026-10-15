@@ -1,0 +1,42 @@
+groups:
+  - name: kube-hpa.recording
+    rules:
+      # 1 when an HPA is running at its maxReplicas ceiling, 0 when it has headroom.
+      # HPAs pinned with minReplicas == maxReplicas are dropped: they sit at max
+      # by design and would otherwise page forever.
+      - record: sre:kube_hpa_at_max_replicas
+        expr: |
+          (
+            max by (namespace, horizontalpodautoscaler) (
+              kube_horizontalpodautoscaler_status_current_replicas
+            )
+            >= bool on (namespace, horizontalpodautoscaler)
+            max by (namespace, horizontalpodautoscaler) (
+              kube_horizontalpodautoscaler_spec_max_replicas
+            )
+          )
+          unless on (namespace, horizontalpodautoscaler)
+          (
+            max by (namespace, horizontalpodautoscaler) (
+              kube_horizontalpodautoscaler_spec_min_replicas
+            )
+            == on (namespace, horizontalpodautoscaler)
+            max by (namespace, horizontalpodautoscaler) (
+              kube_horizontalpodautoscaler_spec_max_replicas
+            )
+          )
+  - name: kube-hpa
+    labels:
+      team: platform
+      component: kubernetes
+    rules:
+      - alert: KubeHpaMaxedOut
+        expr: |
+          sre:kube_hpa_at_max_replicas == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} is at maxReplicas"
+          description: "The HorizontalPodAutoscaler has been running at its maxReplicas ceiling for more than 15 minutes and cannot scale out further under load."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-hpa-maxed-out.md"
