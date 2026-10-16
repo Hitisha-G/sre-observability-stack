@@ -5,7 +5,9 @@
 Fires when a Deployment has had fewer available replicas than desired for more
 than 15 minutes (`sre:kube_deployment_replicas_unavailable > 0`). The recording
 rule clamps at zero so a surge rollout (available above desired) does not look
-like a mismatch.
+like a mismatch. The alert also requires `kube_deployment_status_replicas_updated`
+to be flat for 10 minutes, so a slow rollout or HPA scale-up that is still
+replacing pods does not page while it makes progress.
 
 ## Impact
 
@@ -45,7 +47,7 @@ kubectl -n "$NS" get events --field-selector involvedObject.name="$DEP" \
 | Pods `Pending` / unschedulable | Cluster capacity or affinity | Check node pressure and scheduling events |
 | `ProgressDeadlineExceeded` | Rollout hung past progressDeadlineSeconds | Fix blockers or roll back; then re-deploy |
 | Available below desired after scale-up | New replicas cannot become Ready | Check readiness probes, PDBs, and PVC binding |
-| Mismatch only during deploy, then clears | Normal surge window shorter than `for: 15m` | Confirm; if noisy, tune surge or the alert `for` |
+| Fires mid-deploy with updated replicas flat | Rollout stopped replacing pods (blocked by probes, PDB, or quota) | Check `KubeDeploymentRolloutStuck` and the new ReplicaSet's pod events |
 
 ## Mitigation
 

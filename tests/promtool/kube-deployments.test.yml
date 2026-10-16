@@ -68,3 +68,59 @@ tests:
               summary: "Deployment payments/ledger rollout is stuck"
               description: "The rollout has not progressed for longer than 15 minutes (observed generation lagging or Progressing=False, e.g. ProgressDeadlineExceeded)."
               runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-rollout-stuck.md"
+
+  # cart is under capacity with updated replicas flat, so the mismatch pages.
+  # search rolls out slowly (one pod every 6m): unavailable stays positive for
+  # 30m but updated replicas keep changing, so it must not page.
+  - interval: 1m
+    input_series:
+      - series: 'kube_deployment_spec_replicas{namespace="shop",deployment="cart"}'
+        values: '3x40'
+      - series: 'kube_deployment_status_replicas_available{namespace="shop",deployment="cart"}'
+        values: '1x40'
+      - series: 'kube_deployment_status_replicas_updated{namespace="shop",deployment="cart"}'
+        values: '3x40'
+      - series: 'kube_deployment_spec_replicas{namespace="shop",deployment="search"}'
+        values: '6x40'
+      - series: 'kube_deployment_status_replicas_available{namespace="shop",deployment="search"}'
+        values: '1x5 2x5 3x5 4x5 5x5 6x15'
+      - series: 'kube_deployment_status_replicas_updated{namespace="shop",deployment="search"}'
+        values: '1x5 2x5 3x5 4x5 5x5 6x15'
+    promql_expr_test:
+      - expr: sre:kube_deployment_replicas_unavailable
+        eval_time: 20m
+        exp_samples:
+          - labels: 'sre:kube_deployment_replicas_unavailable{namespace="shop",deployment="cart"}'
+            value: 2
+          - labels: 'sre:kube_deployment_replicas_unavailable{namespace="shop",deployment="search"}'
+            value: 2
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+              component: kubernetes
+              namespace: shop
+              deployment: cart
+            exp_annotations:
+              summary: "Deployment shop/cart replica mismatch"
+              description: "Available replicas have been below the desired count for longer than 15 minutes with no rollout progress in the last 10 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-replicas-mismatch.md"
+      - eval_time: 28m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+              component: kubernetes
+              namespace: shop
+              deployment: cart
+            exp_annotations:
+              summary: "Deployment shop/cart replica mismatch"
+              description: "Available replicas have been below the desired count for longer than 15 minutes with no rollout progress in the last 10 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-deployment-replicas-mismatch.md"
