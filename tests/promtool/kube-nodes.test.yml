@@ -1,0 +1,112 @@
+# promtool unit tests for prometheus/rules/kube-nodes.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-nodes.yml
+
+evaluation_interval: 1m
+
+tests:
+  # worker-1 flips Ready=false at 2m and must wait out for: 10m before firing;
+  # worker-2 stays Ready and is recorded as 0.
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{node="worker-1",condition="Ready",status="true"}'
+        values: '1x1 0x20'
+      - series: 'kube_node_status_condition{node="worker-1",condition="Ready",status="false"}'
+        values: '0x1 1x20'
+      - series: 'kube_node_status_condition{node="worker-1",condition="Ready",status="unknown"}'
+        values: '0x21'
+      - series: 'kube_node_status_condition{node="worker-2",condition="Ready",status="true"}'
+        values: '1x21'
+      - series: 'kube_node_status_condition{node="worker-2",condition="Ready",status="false"}'
+        values: '0x21'
+      - series: 'kube_node_status_condition{node="worker-2",condition="Ready",status="unknown"}'
+        values: '0x21'
+    promql_expr_test:
+      - expr: sre:kube_node_not_ready
+        eval_time: 5m
+        exp_samples:
+          - labels: 'sre:kube_node_not_ready{node="worker-1"}'
+            value: 1
+          - labels: 'sre:kube_node_not_ready{node="worker-2"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: KubeNodeNotReady
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: KubeNodeNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+              component: kubernetes
+              node: worker-1
+            exp_annotations:
+              summary: "Node worker-1 is NotReady"
+              description: "Kubernetes node worker-1 has been NotReady or Ready=unknown for more than 10 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
+
+  # A kubelet that stops heartbeating leaves Ready=unknown, which must page
+  # just like Ready=false.
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{node="worker-3",condition="Ready",status="unknown"}'
+        values: '1x15'
+      - series: 'kube_node_status_condition{node="worker-3",condition="Ready",status="false"}'
+        values: '0x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: KubeNodeNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+              component: kubernetes
+              node: worker-3
+            exp_annotations:
+              summary: "Node worker-3 is NotReady"
+              description: "Kubernetes node worker-3 has been NotReady or Ready=unknown for more than 10 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-not-ready.md"
+
+  # Pressure conditions use a shorter for: 5m. A brief DiskPressure blip that
+  # clears inside the window must not fire; sustained Memory/PID pressure does.
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{node="worker-4",condition="DiskPressure",status="true"}'
+        values: '0 1x3 0x10'
+      - series: 'kube_node_status_condition{node="worker-4",condition="MemoryPressure",status="true"}'
+        values: '0 1x10'
+      - series: 'kube_node_status_condition{node="worker-4",condition="PIDPressure",status="true"}'
+        values: '0x2 1x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: KubeNodeDiskPressure
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: KubeNodeMemoryPressure
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: KubeNodeMemoryPressure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              node: worker-4
+            exp_annotations:
+              summary: "Node worker-4 reporting MemoryPressure"
+              description: "MemoryPressure is true on worker-4 for more than 5 minutes; pods may be evicted."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-memory-pressure.md"
+      - eval_time: 9m
+        alertname: KubeNodePIDPressure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              node: worker-4
+            exp_annotations:
+              summary: "Node worker-4 reporting PIDPressure"
+              description: "PIDPressure is true on worker-4 for more than 5 minutes; new pods may fail to start."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-node-pid-pressure.md"
