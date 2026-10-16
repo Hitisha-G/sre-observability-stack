@@ -27,6 +27,11 @@ try:
 except ImportError:
     yaml = None
 
+# Labels every alert needs (rule or group level) beyond severity, and required annotations.
+REQUIRED_LABELS = ("team", "component")
+REQUIRED_ANNOTATIONS = ("summary",)
+ALLOWED_SEVERITIES = ("warning", "critical", "info")
+
 pass_n = 0
 fail_n = 0
 
@@ -73,7 +78,8 @@ def recording_exprs(record_name: str) -> list[str]:
 if yaml is None:
     for path in files:
         text = path.read_text()
-        for token in ("severity:", "team:", "component:", "runbook_url:", "summary:"):
+        tokens = ("severity", *REQUIRED_LABELS, "runbook_url", *REQUIRED_ANNOTATIONS)
+        for token in (f"{t}:" for t in tokens):
             if token in text:
                 ok(f"{path.name} contains {token}")
             else:
@@ -113,27 +119,25 @@ else:
                 labels = {**group_labels, **(rule.get("labels") or {})}
                 ann = rule.get("annotations") or {}
                 sev = labels.get("severity")
-                if sev in ("warning", "critical", "info"):
+                if sev in ALLOWED_SEVERITIES:
                     ok(f"{name}: severity={sev}")
                 else:
-                    bad(f"{name}: severity must be warning|critical|info")
-                if labels.get("team"):
-                    ok(f"{name}: team set")
-                else:
-                    bad(f"{name}: team label required")
-                if labels.get("component"):
-                    ok(f"{name}: component set")
-                else:
-                    bad(f"{name}: component label required")
+                    bad(f"{name}: severity must be {'|'.join(ALLOWED_SEVERITIES)}")
+                for key in REQUIRED_LABELS:
+                    if labels.get(key):
+                        ok(f"{name}: {key} set")
+                    else:
+                        bad(f"{name}: {key} label required")
                 runbook = ann.get("runbook_url", "")
                 if isinstance(runbook, str) and runbook.startswith("http"):
                     ok(f"{name}: runbook_url present")
                 else:
                     bad(f"{name}: runbook_url must be an http(s) link")
-                if ann.get("summary"):
-                    ok(f"{name}: summary present")
-                else:
-                    bad(f"{name}: summary annotation required")
+                for key in REQUIRED_ANNOTATIONS:
+                    if ann.get(key):
+                        ok(f"{name}: {key} present")
+                    else:
+                        bad(f"{name}: {key} annotation required")
 
                 # PromQL hygiene: every alert must pend for a non-empty duration.
                 for_dur = rule.get("for")
