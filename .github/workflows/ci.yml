@@ -47,6 +47,8 @@ jobs:
         run: make test
       - name: Verify runbook links resolve
         run: make runbooks
+      - name: Require a promtool test file for every rule file
+        run: make coverage
 
   rules:
     runs-on: ubuntu-24.04
