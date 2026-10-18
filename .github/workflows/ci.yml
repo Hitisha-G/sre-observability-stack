@@ -83,10 +83,18 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/promtool" --version
-      - name: Check Prometheus rules with promtool
+      - name: Check Prometheus rules with promtool (lint findings fail)
         run: make rules
       - name: Run promtool rule unit tests
-        run: make promtool-test
+        run: make promtool-test PROMTOOL_JUNIT=promtool-junit.xml
+      - name: Upload promtool JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promtool-junit
+          path: promtool-junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Summarize validated rules
         if: always()
         run: |

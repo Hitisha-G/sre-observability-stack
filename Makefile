@@ -2,6 +2,8 @@
 
 RULES_DIR := prometheus/rules
 TEST_DIR := tests
+# Set to a file path to write promtool unit test results as JUnit XML.
+PROMTOOL_JUNIT ?=
 
 .PHONY: help lint test runbooks coverage rules promtool-test ci
 
@@ -12,8 +14,8 @@ help:
 		'  make test      - alert rule schema unit checks' \
 		'  make runbooks  - verify in-repo runbook_url targets exist' \
 		'  make coverage  - every rule file has a promtool test file' \
-		'  make rules     - promtool check rules (needs promtool on PATH)' \
-		'  make promtool-test - promtool unit tests under tests/promtool/' \
+		'  make rules     - promtool check rules, lint findings fail (needs promtool)' \
+		'  make promtool-test - promtool unit tests (PROMTOOL_JUNIT=out.xml for JUnit)' \
 		'  make ci        - lint + test + runbooks + coverage + rules + promtool-test'
 
 lint:
@@ -29,9 +31,9 @@ coverage:
 	bash $(TEST_DIR)/promtool_coverage_test.sh
 
 rules:
-	promtool check rules $(RULES_DIR)/*.yml
+	promtool check rules --lint=all --lint-fatal $(RULES_DIR)/*.yml
 
 promtool-test:
-	promtool test rules $(TEST_DIR)/promtool/*.test.yml
+	promtool test rules $(if $(PROMTOOL_JUNIT),--junit=$(PROMTOOL_JUNIT)) $(TEST_DIR)/promtool/*.test.yml
 
 ci: lint test runbooks coverage rules promtool-test

@@ -66,8 +66,8 @@ The `Makefile` mirrors the CI jobs, so a green `make ci` locally should mean a g
 | `make test` | every alert has severity, team, and component labels, a summary, a runbook_url, and a non-empty `for:`; alert names are unique | `bash`, `python3` + PyYAML |
 | `make runbooks` | every in-repo `runbook_url` points at a file that exists | `bash` |
 | `make coverage` | every rule file under `prometheus/rules/` has a matching `tests/promtool/*.test.yml` | `bash` |
-| `make rules` | `promtool check rules` for PromQL and rule syntax | `promtool` |
-| `make promtool-test` | promtool unit tests that replay series and assert which alerts fire | `promtool` |
+| `make rules` | `promtool check rules` for PromQL and rule syntax; lint findings such as duplicate rules fail the run | `promtool` |
+| `make promtool-test` | promtool unit tests that replay series and assert which alerts fire; set `PROMTOOL_JUNIT=out.xml` for a JUnit report (CI uploads it as an artifact) | `promtool` |
 
 `promtool` ships in the Prometheus release tarball; drop it on your `PATH` or run the last two targets through `docker run --rm -v "$PWD":/w -w /w --entrypoint promtool prom/prometheus ...`.
 

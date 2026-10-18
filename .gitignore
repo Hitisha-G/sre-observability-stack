@@ -23,3 +23,6 @@ __pycache__/
 coverage.xml
 htmlcov/
 *.tmp
+
+# promtool JUnit output (make promtool-test PROMTOOL_JUNIT=...)
+promtool-junit.xml
