@@ -1,0 +1,96 @@
+# promtool unit tests for prometheus/rules/kube-volumes.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-volumes.yml
+
+evaluation_interval: 1m
+
+tests:
+  # data-pg-0 loses 1 byte per minute out of 1000. It drops under 15% free at
+  # 151m and fires FillingUp after for: 1h. logs-archive sits at 10% free with
+  # no growth, so the trend check keeps it quiet.
+  - interval: 1m
+    input_series:
+      - series: 'kubelet_volume_stats_capacity_bytes{namespace="db",persistentvolumeclaim="data-pg-0",instance="node-a"}'
+        values: '1000x300'
+      - series: 'kubelet_volume_stats_available_bytes{namespace="db",persistentvolumeclaim="data-pg-0",instance="node-a"}'
+        values: '300-1x250'
+      - series: 'kubelet_volume_stats_capacity_bytes{namespace="ops",persistentvolumeclaim="logs-archive",instance="node-b"}'
+        values: '1000x300'
+      - series: 'kubelet_volume_stats_available_bytes{namespace="ops",persistentvolumeclaim="logs-archive",instance="node-b"}'
+        values: '100x300'
+    promql_expr_test:
+      - expr: sre:kube_pvc_available_ratio
+        eval_time: 200m
+        exp_samples:
+          - labels: 'sre:kube_pvc_available_ratio{namespace="db",persistentvolumeclaim="data-pg-0"}'
+            value: 0.1
+          - labels: 'sre:kube_pvc_available_ratio{namespace="ops",persistentvolumeclaim="logs-archive"}'
+            value: 0.1
+    alert_rule_test:
+      - eval_time: 200m
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts: []
+      - eval_time: 240m
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: db
+              persistentvolumeclaim: data-pg-0
+            exp_annotations:
+              summary: "PVC db/data-pg-0 is filling up"
+              description: "Only 6% of the volume is free and, at the current 6h growth rate, it will be full within 4 days."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-persistent-volume-filling-up.md"
+      - eval_time: 240m
+        alertname: KubePersistentVolumeAlmostFull
+        exp_alerts: []
+
+  # cache-0 drops under 3% free at 21m and pages after for: 5m. FillingUp is
+  # still pending (needs 1h), so only the critical alert fires at 30m.
+  - interval: 1m
+    input_series:
+      - series: 'kubelet_volume_stats_capacity_bytes{namespace="apps",persistentvolumeclaim="cache-0",instance="node-c"}'
+        values: '1000x60'
+      - series: 'kubelet_volume_stats_available_bytes{namespace="apps",persistentvolumeclaim="cache-0",instance="node-c"}'
+        values: '50-1x45'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: KubePersistentVolumeAlmostFull
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: KubePersistentVolumeAlmostFull
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+              component: kubernetes
+              namespace: apps
+              persistentvolumeclaim: cache-0
+            exp_annotations:
+              summary: "PVC apps/cache-0 is almost full"
+              description: "Only 2% of the volume is free. Writes from the workload using it will start failing soon."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-persistent-volume-filling-up.md"
+      - eval_time: 30m
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts: []
+
+  # A ReadOnlyMany claim at 1% free and shrinking never alerts: nothing can
+  # write to it, so running out of space is not actionable.
+  - interval: 1m
+    input_series:
+      - series: 'kubelet_volume_stats_capacity_bytes{namespace="ml",persistentvolumeclaim="model-weights",instance="node-d"}'
+        values: '1000x120'
+      - series: 'kubelet_volume_stats_available_bytes{namespace="ml",persistentvolumeclaim="model-weights",instance="node-d"}'
+        values: '120-1x110'
+      - series: 'kube_persistentvolumeclaim_access_mode{namespace="ml",persistentvolumeclaim="model-weights",access_mode="ReadOnlyMany"}'
+        values: '1x120'
+    alert_rule_test:
+      - eval_time: 115m
+        alertname: KubePersistentVolumeAlmostFull
+        exp_alerts: []
+      - eval_time: 115m
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts: []

@@ -1,0 +1,54 @@
+groups:
+  - name: kube-volumes.recording
+    rules:
+      # Fraction of each PersistentVolumeClaim that is still free, as reported by
+      # the kubelet of the node that mounts it. max by drops per-scrape labels
+      # (instance, node) so a PVC re-mounted on another node keeps one series.
+      - record: sre:kube_pvc_available_ratio
+        expr: |
+          max by (namespace, persistentvolumeclaim) (
+            kubelet_volume_stats_available_bytes
+          )
+          / on (namespace, persistentvolumeclaim)
+          max by (namespace, persistentvolumeclaim) (
+            kubelet_volume_stats_capacity_bytes
+          )
+  - name: kube-volumes
+    labels:
+      team: platform
+      component: kubernetes
+    rules:
+      # Predictive: low on space AND the 6h trend runs out within 4 days.
+      # A volume that sits at 10% free without growing stays quiet.
+      # ReadOnlyMany claims cannot be written to, so they are excluded.
+      - alert: KubePersistentVolumeFillingUp
+        expr: |
+          (
+            sre:kube_pvc_available_ratio < 0.15
+            and on (namespace, persistentvolumeclaim)
+            max by (namespace, persistentvolumeclaim) (
+              predict_linear(kubelet_volume_stats_available_bytes[6h], 4 * 24 * 3600)
+            ) < 0
+          )
+          unless on (namespace, persistentvolumeclaim)
+          kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} == 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is filling up"
+          description: "Only {{ $value | humanizePercentage }} of the volume is free and, at the current 6h growth rate, it will be full within 4 days."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-persistent-volume-filling-up.md"
+      # Last-resort page: writes will start failing within minutes to hours.
+      - alert: KubePersistentVolumeAlmostFull
+        expr: |
+          sre:kube_pvc_available_ratio < 0.03
+          unless on (namespace, persistentvolumeclaim)
+          kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is almost full"
+          description: "Only {{ $value | humanizePercentage }} of the volume is free. Writes from the workload using it will start failing soon."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-persistent-volume-filling-up.md"
