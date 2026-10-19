@@ -1,0 +1,39 @@
+groups:
+  - name: kube-statefulsets.recording
+    rules:
+      # Pods a StatefulSet still owes: desired minus ready. Clamped at zero so a
+      # scale-down that has not finished terminating pods never records a
+      # negative count.
+      - record: sre:kube_statefulset_replicas_not_ready
+        expr: |
+          clamp_min(
+            max by (namespace, statefulset) (
+              kube_statefulset_replicas
+              - on (namespace, statefulset) group_left()
+                kube_statefulset_status_replicas_ready
+            ),
+            0
+          )
+  - name: kube-statefulsets
+    labels:
+      team: platform
+      component: kubernetes
+    rules:
+      - alert: KubeStatefulSetReplicasMismatch
+        # StatefulSets roll one ordinal at a time, so a healthy rolling update is
+        # short a ready pod for a while. Only alert once updated replicas have
+        # stopped changing, i.e. the controller is stuck on a pod that will not
+        # become ready (bad image, volume not attaching, failed probe).
+        expr: |
+          sre:kube_statefulset_replicas_not_ready > 0
+          and on (namespace, statefulset)
+          max by (namespace, statefulset) (
+            changes(kube_statefulset_status_replicas_updated[10m])
+          ) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} replica mismatch"
+          description: "{{ $value }} replica(s) have not been ready for longer than 15 minutes and the rollout has made no progress in the last 10 minutes."
+          runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-statefulset-replicas-mismatch.md"

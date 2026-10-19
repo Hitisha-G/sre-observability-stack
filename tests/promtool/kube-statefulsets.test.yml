@@ -1,0 +1,90 @@
+# promtool unit tests for prometheus/rules/kube-statefulsets.yml.
+# Run with: make promtool-test (or promtool test rules tests/promtool/*.test.yml)
+rule_files:
+  - ../../prometheus/rules/kube-statefulsets.yml
+
+evaluation_interval: 1m
+
+tests:
+  # pg in db wants 3 replicas. pg-2 drops out of ready at 5m and never comes
+  # back while updated replicas stay flat, so the alert pends from 5m and
+  # fires after for: 15m. redis in cache is fully ready and stays quiet.
+  - interval: 1m
+    input_series:
+      - series: 'kube_statefulset_replicas{namespace="db",statefulset="pg",instance="ksm-0"}'
+        values: '3x40'
+      - series: 'kube_statefulset_status_replicas_ready{namespace="db",statefulset="pg",instance="ksm-0"}'
+        values: '3x4 2x35'
+      - series: 'kube_statefulset_status_replicas_updated{namespace="db",statefulset="pg",instance="ksm-0"}'
+        values: '3x40'
+      - series: 'kube_statefulset_replicas{namespace="cache",statefulset="redis",instance="ksm-0"}'
+        values: '3x40'
+      - series: 'kube_statefulset_status_replicas_ready{namespace="cache",statefulset="redis",instance="ksm-0"}'
+        values: '3x40'
+      - series: 'kube_statefulset_status_replicas_updated{namespace="cache",statefulset="redis",instance="ksm-0"}'
+        values: '3x40'
+    promql_expr_test:
+      - expr: sre:kube_statefulset_replicas_not_ready
+        eval_time: 5m
+        exp_samples:
+          - labels: 'sre:kube_statefulset_replicas_not_ready{namespace="db",statefulset="pg"}'
+            value: 1
+          - labels: 'sre:kube_statefulset_replicas_not_ready{namespace="cache",statefulset="redis"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              component: kubernetes
+              namespace: db
+              statefulset: pg
+            exp_annotations:
+              summary: "StatefulSet db/pg replica mismatch"
+              description: "1 replica(s) have not been ready for longer than 15 minutes and the rollout has made no progress in the last 10 minutes."
+              runbook_url: "https://github.com/Hitisha-G/sre-observability-stack/blob/main/docs/runbooks/kube-statefulset-replicas-mismatch.md"
+
+  # kafka rolls 5 pods one ordinal at a time: each step updates one more pod
+  # and it is briefly not ready. Updated replicas keep moving every 6m, so the
+  # alert never fires even though a pod is missing for most of the rollout.
+  - interval: 1m
+    input_series:
+      - series: 'kube_statefulset_replicas{namespace="stream",statefulset="kafka"}'
+        values: '5x40'
+      - series: 'kube_statefulset_status_replicas_ready{namespace="stream",statefulset="kafka"}'
+        values: '4x29 5x10'
+      - series: 'kube_statefulset_status_replicas_updated{namespace="stream",statefulset="kafka"}'
+        values: '0x5 1x5 2x5 3x5 4x5 5x15'
+    alert_rule_test:
+      - eval_time: 29m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts: []
+
+  # Scaling zk down from 5 to 3 leaves ready above desired while the extra
+  # pods terminate. The recording rule clamps to 0 and nothing alerts.
+  - interval: 1m
+    input_series:
+      - series: 'kube_statefulset_replicas{namespace="coord",statefulset="zk"}'
+        values: '3x30'
+      - series: 'kube_statefulset_status_replicas_ready{namespace="coord",statefulset="zk"}'
+        values: '5x30'
+      - series: 'kube_statefulset_status_replicas_updated{namespace="coord",statefulset="zk"}'
+        values: '5x30'
+    promql_expr_test:
+      - expr: sre:kube_statefulset_replicas_not_ready
+        eval_time: 10m
+        exp_samples:
+          - labels: 'sre:kube_statefulset_replicas_not_ready{namespace="coord",statefulset="zk"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts: []

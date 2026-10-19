@@ -24,6 +24,7 @@ prometheus/
     kube-hpa.yml            # HPA running at its maxReplicas ceiling
     kube-jobs.yml           # Jobs that reached the terminal Failed condition
     kube-volumes.yml        # PVCs filling up (trend-based) or almost full
+    kube-statefulsets.yml   # StatefulSets short of ready replicas with a stalled rollout
 grafana/
   dashboards/               # JSON dashboards checked into git
 otel/
@@ -53,6 +54,7 @@ Every alert carries `severity`, `team`, and `component` labels, a `summary` anno
 | KubeJobFailed | `kube-jobs.yml` | warning | 5m | [kube-job-failed](docs/runbooks/kube-job-failed.md) |
 | KubePersistentVolumeFillingUp | `kube-volumes.yml` | warning | 1h | [kube-persistent-volume-filling-up](docs/runbooks/kube-persistent-volume-filling-up.md) |
 | KubePersistentVolumeAlmostFull | `kube-volumes.yml` | critical | 5m | [kube-persistent-volume-filling-up](docs/runbooks/kube-persistent-volume-filling-up.md) |
+| KubeStatefulSetReplicasMismatch | `kube-statefulsets.yml` | warning | 15m | [kube-statefulset-replicas-mismatch](docs/runbooks/kube-statefulset-replicas-mismatch.md) |
 
 Critical alerts mean user-facing impact is likely now (a node is gone, a Deployment is short of replicas, a volume is about to stop accepting writes). Warnings are things to fix during working hours before they turn critical.
 
@@ -80,4 +82,4 @@ The `Makefile` mirrors the CI jobs, so a green `make ci` locally should mean a g
 
 ## Status
 
-Alert rules cover kube-pods, kube-deployments, kube-nodes, kube-hpa, kube-jobs, and kube-volumes, each with a runbook and promtool unit tests (see the catalog above). Compose stack, dashboards, and more rule packs land in follow-up commits.
+Alert rules cover kube-pods, kube-deployments, kube-nodes, kube-hpa, kube-jobs, kube-volumes, and kube-statefulsets, each with a runbook and promtool unit tests (see the catalog above). Compose stack, dashboards, and more rule packs land in follow-up commits.
