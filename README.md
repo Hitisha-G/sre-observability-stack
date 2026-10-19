@@ -65,6 +65,7 @@ The `Makefile` mirrors the CI jobs, so a green `make ci` locally should mean a g
 | Target | What it checks | Needs |
 | --- | --- | --- |
 | `make lint` | shellcheck on `tests/*.sh` | `shellcheck` |
+| `make yaml` | yamllint (`--strict`, config in `.yamllint.yml`) on rule files, promtool tests, and workflows | `yamllint` |
 | `make test` | every alert has severity, team, and component labels, a summary, a runbook_url, and a non-empty `for:`; alert names are unique | `bash`, `python3` + PyYAML |
 | `make runbooks` | every in-repo `runbook_url` points at a file that exists | `bash` |
 | `make coverage` | every rule file under `prometheus/rules/` has a matching `tests/promtool/*.test.yml` | `bash` |

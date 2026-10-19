@@ -1,0 +1,10 @@
+# yamllint config for rule files, promtool tests, and workflows.
+# Alert expressions, annotations, and test series are long by nature,
+# so line length is left to review rather than enforced here.
+extends: default
+
+rules:
+  document-start: disable
+  line-length: disable
+  truthy:
+    check-keys: false
