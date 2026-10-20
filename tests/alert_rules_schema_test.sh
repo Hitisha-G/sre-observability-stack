@@ -65,15 +65,23 @@ if yaml is not None:
         docs[path] = yaml.safe_load(path.read_text()) or {}
 
 
-def recording_exprs(record_name: str) -> list[str]:
-    """Return expr strings for every recording rule named record_name."""
-    found = []
-    for data in docs.values():
+def iter_rules(only: pathlib.Path | None = None):
+    """Yield (group, rule) pairs from the parsed docs, optionally for a single file."""
+    for path, data in docs.items():
+        if only is not None and path != only:
+            continue
         for group in data.get("groups") or []:
             for rule in group.get("rules") or []:
-                if rule.get("record") == record_name:
-                    found.append(rule.get("expr") or "")
-    return found
+                yield group, rule
+
+
+def recording_exprs(record_name: str) -> list[str]:
+    """Return expr strings for every recording rule named record_name."""
+    return [
+        rule.get("expr") or ""
+        for _, rule in iter_rules()
+        if rule.get("record") == record_name
+    ]
 
 if yaml is None:
     for path in files:
@@ -107,47 +115,46 @@ else:
         else:
             bad(f"{path.name}: has groups")
             continue
-        for group in groups:
+        for group, rule in iter_rules(path):
+            if "alert" not in rule:
+                continue
+            # Group labels (Prometheus >= 2.27) apply to every rule; rule labels win.
             group_labels = group.get("labels") or {}
-            for rule in group.get("rules") or []:
-                if "alert" not in rule:
-                    continue
-                alerts += 1
-                name = rule["alert"]
-                alert_names.append((name, path.name))
-                # Group labels (Prometheus >= 2.27) apply to every rule; rule labels win.
-                labels = {**group_labels, **(rule.get("labels") or {})}
-                ann = rule.get("annotations") or {}
-                sev = labels.get("severity")
-                if sev in ALLOWED_SEVERITIES:
-                    ok(f"{name}: severity={sev}")
+            alerts += 1
+            name = rule["alert"]
+            alert_names.append((name, path.name))
+            labels = {**group_labels, **(rule.get("labels") or {})}
+            ann = rule.get("annotations") or {}
+            sev = labels.get("severity")
+            if sev in ALLOWED_SEVERITIES:
+                ok(f"{name}: severity={sev}")
+            else:
+                bad(f"{name}: severity must be {'|'.join(ALLOWED_SEVERITIES)}")
+            for key in REQUIRED_LABELS:
+                if labels.get(key):
+                    ok(f"{name}: {key} set")
                 else:
-                    bad(f"{name}: severity must be {'|'.join(ALLOWED_SEVERITIES)}")
-                for key in REQUIRED_LABELS:
-                    if labels.get(key):
-                        ok(f"{name}: {key} set")
-                    else:
-                        bad(f"{name}: {key} label required")
-                runbook = ann.get("runbook_url", "")
-                if isinstance(runbook, str) and runbook.startswith("http"):
-                    ok(f"{name}: runbook_url present")
+                    bad(f"{name}: {key} label required")
+            runbook = ann.get("runbook_url", "")
+            if isinstance(runbook, str) and runbook.startswith("http"):
+                ok(f"{name}: runbook_url present")
+            else:
+                bad(f"{name}: runbook_url must be an http(s) link")
+            for key in REQUIRED_ANNOTATIONS:
+                if ann.get(key):
+                    ok(f"{name}: {key} present")
                 else:
-                    bad(f"{name}: runbook_url must be an http(s) link")
-                for key in REQUIRED_ANNOTATIONS:
-                    if ann.get(key):
-                        ok(f"{name}: {key} present")
-                    else:
-                        bad(f"{name}: {key} annotation required")
+                    bad(f"{name}: {key} annotation required")
 
-                # PromQL hygiene: every alert must pend for a non-empty duration.
-                for_dur = rule.get("for")
-                if isinstance(for_dur, str) and for_dur.strip():
-                    ok(f"{name}: for={for_dur.strip()}")
-                else:
-                    bad(f"{name}: non-empty for: duration required")
+            # PromQL hygiene: every alert must pend for a non-empty duration.
+            for_dur = rule.get("for")
+            if isinstance(for_dur, str) and for_dur.strip():
+                ok(f"{name}: for={for_dur.strip()}")
+            else:
+                bad(f"{name}: non-empty for: duration required")
 
-                if name == "KubePodCrashLooping":
-                    crashloop_expr = rule.get("expr") or ""
+            if name == "KubePodCrashLooping":
+                crashloop_expr = rule.get("expr") or ""
 
 # Unique alert names across rule packs.
 seen: dict[str, str] = {}
