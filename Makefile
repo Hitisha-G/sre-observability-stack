@@ -2,6 +2,8 @@
 
 RULES_DIR := prometheus/rules
 TEST_DIR := tests
+# Match the test scripts and CI summary, which accept both .yml and .yaml rule files.
+RULE_FILES := $(sort $(wildcard $(RULES_DIR)/*.yml $(RULES_DIR)/*.yaml))
 # Set to a file path to write promtool unit test results as JUnit XML.
 PROMTOOL_JUNIT ?=
 
@@ -35,7 +37,8 @@ coverage:
 	bash $(TEST_DIR)/promtool_coverage_test.sh
 
 rules:
-	promtool check rules --lint=all --lint-fatal $(RULES_DIR)/*.yml
+	@test -n "$(RULE_FILES)" || { echo 'no rule files under $(RULES_DIR)' >&2; exit 1; }
+	promtool check rules --lint=all --lint-fatal $(RULE_FILES)
 
 promtool-test:
 	promtool test rules $(if $(PROMTOOL_JUNIT),--junit=$(PROMTOOL_JUNIT)) $(TEST_DIR)/promtool/*.test.yml
